@@ -31,7 +31,7 @@
 		"rehype-external-links": "^3.0.0",
 		"satori": "0.12.0",
 		"satori-html": "^0.3.2",
-		"sst": "3.4.31"
+		"sst": "3.4.32"
 	},
 	"devDependencies": {
 		"@astrojs/check": "^0.9.4",
