@@ -1,0 +1,162 @@
+---
+import SocialList from "@/components/SocialList.astro";
+import PostPreview from "@/components/blog/PostPreview.astro";
+import { getAllPosts, sortMDByDate } from "@/data/post";
+import PageLayout from "@/layouts/Base.astro";
+
+const MAX_POSTS = 10;
+const allPosts = await getAllPosts();
+const allPostsByDate = sortMDByDate(allPosts).slice(0, MAX_POSTS);
+
+const cactusTech: { desc: string; href: string; stars?: string; title: string }[] = [
+	{
+		desc: "Gen AI CLI to talk to your AWS, literally.",
+		href: "https://chatwithcloud.ai",
+		title: "ChatWithCloud",
+	},
+	{
+		desc: "Professional GUI Client for DynamoDB. Over 2,500 paying customers.",
+		href: "https://dynobase.dev",
+		title: "Dynobase",
+	},
+	{
+		desc: "Fast & Smart Command Bar for AWS Console",
+		href: "https://cloudtempo.dev",
+		title: "CloudTempo",
+	},
+	{
+		desc: "Realtime Monitoring solution for Node.js/Express.js apps",
+		href: "https://github.com/RafalWilinski/express-status-monitor",
+		stars: "3.6k",
+		title: "express-status-monitor",
+	},
+	{
+		desc: "Your LLM assistant available in Telegram",
+		href: "https://github.com/RafalWilinski/telegram-chatgpt-concierge-bot",
+		stars: "1.1k",
+		title: "telegram-chatgpt-concierge-bot",
+	},
+	{
+		desc: "Contributed some, brought Kotlin and Java support",
+		href: "https://github.com/serverless/serverless/pulls?page=1&q=is%3Apr+author%3ARafalWilinski+is%3Aclosed",
+		stars: "46k",
+		title: "serverless-framework",
+	},
+];
+
+const history: { dates: string; desc: string; href: string; title: string }[] = [
+	{
+		dates: "2024 - Currently",
+		desc: "Building AI solutions for Zapier's AI platform.",
+		href: "https://zapier.com/central",
+		title: "Senior AI Engineer @ Zapier",
+	},
+	{
+		dates: "2022 - 2024",
+		desc: "Kickstarted AI team, leading multiple gen AI projects",
+		href: "https://vendr.com",
+		title: "AI Tech Lead @ Vendr",
+	},
+	{
+		dates: "2019 - Present",
+		desc: "Kickstarted and scaled a SaaS from $0 to $150k ARR",
+		href: "https://dynobase.dev",
+		title: "Founder @ Dynobase",
+	},
+	{
+		dates: "2020 - 2022",
+		desc: "Building fault-tolerant and multi-region systems on AWS",
+		href: "https://stedi.com",
+		title: "Serverless Engineer @ Stedi",
+	},
+	{
+		dates: "2017 - 2020",
+		desc: "Leading & developing solutions on top of AWS",
+		href: "https://x-team.com",
+		title: "Cloud Engineer @ X-Team",
+	},
+	{
+		dates: "2014 - 2017",
+		desc: "Platform Engineering, AWS, Node.js, Cloud etc.",
+		href: "/",
+		title: "Other companies",
+	},
+];
+---
+
+<PageLayout meta={{ title: "Home" }}>
+	<section>
+		<p class="mb-4">
+			Independent AI Consultant - LLMs, RAGs, AI Agents
+			<br />
+			<br />
+			Currently: Applied AI at <a class="cactus-link" href="https://central.zapier.com/"
+				>Zapier Agents</a
+			>. Ex-AI Tech Lead at <a class="cactus-link" href="https://vendr.com/">Vendr</a>
+			<br />
+			Creator of
+			<a class="cactus-link" href="https://dynobase.dev/">Dynobase</a> and <a
+				class="cactus-link"
+				href="https://chatwithcloud.ai/">ChatWithCloud</a
+			>. <br />
+		</p>
+		<a class="cactus-link mt-2" href="/consulting/">Work with me</a>
+		<SocialList />
+	</section>
+	<section aria-label="Blog post list" class="mt-16">
+		<h2 class="title mb-4 text-xl">Posts</h2>
+		<ul class="space-y-4">
+			{
+				allPostsByDate.map((p) => (
+					<li class="grid gap-2 sm:grid-cols-[auto_1fr] sm:[&_q]:col-start-2">
+						<PostPreview post={p} />
+					</li>
+				))
+			}
+		</ul>
+	</section>
+	<section class="mt-16">
+		<h2 class="title mb-4 text-xl">Work History</h2>
+		<dl class="space-y-4">
+			{
+				history.map(({ dates, desc, href, title }) => (
+					<div>
+						<p class="text-xs text-gray-500">{dates} </p>
+						<div class="flex flex-col gap-1 sm:flex-row">
+							<dt>
+								<span class="flex">
+									<a class="cactus-link" href={href} rel="noopener noreferrer" target="_blank">
+										{title}
+									</a>
+									-{"   "}
+								</span>
+							</dt>
+							<dd>{desc}</dd>
+						</div>
+					</div>
+				))
+			}
+		</dl>
+	</section>
+
+	<section class="mt-16">
+		<h2 class="title mb-4 text-xl">Projects</h2>
+		<dl class="space-y-4">
+			{
+				cactusTech.map(({ desc, href, stars, title }) => (
+					<div class="flex flex-col gap-2 sm:flex-row">
+						<dt>
+							<span class="flex">
+								<a class="cactus-link" href={href} rel="noopener noreferrer" target="_blank">
+									{title}
+								</a>
+								{stars && <span class="ml-1 text-xs text-gray-500">{stars}★</span>}:
+							</span>
+						</dt>
+						<dd>{desc}</dd>
+					</div>
+				))
+			}
+		</dl>
+	</section>
+</PageLayout>
