@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https:/rwilinski.ai/sitemap-index.xml
+Sitemap: https://blakegreen.devsitemap-index.xml

@@ -1,0 +1,18 @@
+---
+title: "Losing Faith in CloudFormation"
+description: "CloudFormation is a powerful tool for building cloud infra but it'sflawed."
+publishDate: "27 December 2024"
+tags: ["aws", "cloudformation", "infrastructure"]
+---
+
+CloudFormation is a powerful tool for building and deploying infrastructure as code. But it's not without its flaws. In this post, we'll explore some of the challenges and limitations of CloudFormation and how you can overcome them.
+
+---
+
+## The Problem
+
+Even back in the day when there were fewer infrastructure-as-code tools options, something didn’t seem right about it. Maybe it was due to the fact that it only supported JSON at the time, but even when YAML support came along, I was left wanting more. I quickly became aware of Terraform and I noticed one major difference… it was FAST!
+
+The fast feedback loop and iteration especially with infrastructure-as-code is critical to being productive as a cloud engineer or architect. CloudFormation has a lot of great features but speed is not one of them. This has made me very frustrated over time and I’m not alone. I see a lot of feedback on social media about the same issues with CloudFormation. Heck, even the team at SST, which is built on top of the AWS CDK, is considering a switch to another IaC engine like Terraform or Pulumi. There is an obvious need to move fast. To be completely honest, if it wasn’t for the AWS CDK and the brilliant abstractions, I would be long gone from CloudFormation.
+
+I don’t want to sound too harsh because I know things are going on in the background that are probably preventing mistakes or issues. But AWS is a billion-dollar company with the brightest engineers and there are competing tools in the space that can do things faster and more efficiently. To this point, I have been putting all my chips on the fact that AWS is customer-obsessed, and eventually, if enough people complain about how slow the service is, they’ll finally make the underlying changes to improve the service. Until then, I’m losing faith in CloudFormation.

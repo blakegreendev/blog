@@ -1,7 +1,7 @@
 {
-	"name": "Rafal's AI Blog",
-	"short_name": "rwilinski.ai",
-	"description": "Blog about applied AI, LLMs, RAGs and agents",
+	"name": "BlakeGreenDev",
+	"short_name": "blakegreen.dev",
+	"description": "Blog about AWS, Serverless, IaC, and AI.",
 	"icons": [
 		{
 			"src": "/192x192.png",
