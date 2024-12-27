@@ -16,9 +16,6 @@ import react from "@astrojs/react";
 // https://astro.build/config
 export default defineConfig({
 	image: {
-		service: {
-			entrypoint: "astro/assets/services/noop",
-		},
 		domains: ["webmention.io"],
 	},
 	integrations: [
@@ -50,8 +47,8 @@ export default defineConfig({
 	},
 	// https://docs.astro.build/en/guides/prefetch/
 	prefetch: true,
-	adapter: aws(),
-	output: "server",
+	// adapter: aws(),
+	// output: "server",
 	// ! Please remember to replace the following site property with your own domain
 	site: "https://blakegreen.dev/",
 	vite: {
