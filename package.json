@@ -17,7 +17,7 @@
 		"@astrojs/react": "^3.6.2",
 		"@astrojs/rss": "4.0.5",
 		"@astrojs/sitemap": "3.1.2",
-		"@astrojs/tailwind": "5.1.0",
+		"@astrojs/tailwind": "5.1.4",
 		"@calcom/embed-react": "^1.5.1",
 		"@radix-ui/react-slider": "^1.2.0",
 		"@types/react-dom": "^18.3.0",
