@@ -1,18 +1,67 @@
 ---
-title: "Losing Faith in CloudFormation"
-description: "CloudFormation is a powerful tool for building cloud infra but it'sflawed."
-publishDate: "27 December 2024"
-tags: ["aws", "cloudformation", "infrastructure"]
+title: "Why I Left CloudFormation for Pulumi"
+description: "CloudFormation's slowness was killing my productivity until SST switched to Pulumi."
+publishDate: "27 September 2024"
+tags: ["aws", "cloudformation", "pulumi", "sst", "infrastructure", "iac", "multi-cloud"]
 ---
 
-CloudFormation is a powerful tool for building and deploying infrastructure as code. But it's not without its flaws. In this post, we'll explore some of the challenges and limitations of CloudFormation and how you can overcome them.
+# Why I Left CloudFormation for Pulumi
+
+After years of struggling with CloudFormation's painfully slow deployment times, I've finally found relief. In this post, I'll share why CloudFormation's performance issues pushed me away, how SST's switch to Pulumi transformed my developer experience, and why multi-cloud support is becoming increasingly important.
 
 ---
 
-## The Problem
+## CloudFormation: Death by a Thousand Deployments
 
-Even back in the day when there were fewer infrastructure-as-code tools options, something didn’t seem right about it. Maybe it was due to the fact that it only supported JSON at the time, but even when YAML support came along, I was left wanting more. I quickly became aware of Terraform and I noticed one major difference… it was FAST!
+Even back in the day when infrastructure-as-code options were limited, CloudFormation never felt quite right. The initial JSON-only format was cumbersome, and even when YAML support arrived, the fundamental issues remained. The moment I tried Terraform, one difference was immediately apparent: **it was FAST!**
 
-The fast feedback loop and iteration especially with infrastructure-as-code is critical to being productive as a cloud engineer or architect. CloudFormation has a lot of great features but speed is not one of them. This has made me very frustrated over time and I’m not alone. I see a lot of feedback on social media about the same issues with CloudFormation. Heck, even the team at SST, which is built on top of the AWS CDK, is considering a switch to another IaC engine like Terraform or Pulumi. There is an obvious need to move fast. To be completely honest, if it wasn’t for the AWS CDK and the brilliant abstractions, I would be long gone from CloudFormation.
+For cloud engineers and architects, a rapid feedback loop is essential to productivity. Making a small change, waiting 15-20 minutes for a deployment, discovering an error, fixing it, and waiting another 15-20 minutes is soul-crushing. This cycle repeats throughout the day, killing momentum and creative flow.
 
-I don’t want to sound too harsh because I know things are going on in the background that are probably preventing mistakes or issues. But AWS is a billion-dollar company with the brightest engineers and there are competing tools in the space that can do things faster and more efficiently. To this point, I have been putting all my chips on the fact that AWS is customer-obsessed, and eventually, if enough people complain about how slow the service is, they’ll finally make the underlying changes to improve the service. Until then, I’m losing faith in CloudFormation.
+CloudFormation has many strengths—tight AWS integration, comprehensive resource support, and a mature ecosystem. But its glacial deployment speed is a fatal flaw that has frustrated me for years. And I'm not alone—complaints about CloudFormation's performance are widespread across the AWS community.
+
+## SST's Game-Changing Move to Pulumi
+
+What finally pushed me over the edge was SST's decision to switch from CloudFormation to Pulumi as their underlying deployment engine. SST (formerly known as Serverless Stack) has been my go-to framework for building serverless applications on AWS. Initially built on AWS CDK (which itself uses CloudFormation), SST made the bold move to replace their infrastructure engine with Pulumi.
+
+The results have been transformative:
+
+1. **Dramatically faster deployments**: What used to take 15-20 minutes now completes in 2-3 minutes
+2. **Incremental updates**: Changes only affect the resources that need updating, not the entire stack
+3. **Better error handling**: Clearer error messages and faster recovery from failed deployments
+4. **Live Lambda development**: The local development experience is significantly improved
+
+This isn't just a minor improvement—it's a complete revolution in my workflow. I can now iterate quickly, experiment freely, and maintain my creative momentum without being interrupted by endless deployment waits.
+
+## Beyond AWS: The Multi-Cloud Advantage
+
+Another significant benefit of SST's switch to Pulumi is multi-cloud support. While AWS remains my primary cloud provider, having the flexibility to incorporate resources from other providers when they offer superior services is invaluable.
+
+With Pulumi, I can now:
+
+- Use Google Cloud's AI services alongside AWS Lambda functions
+- Incorporate Cloudflare Workers for edge computing
+- Leverage Azure's unique offerings when they make sense for my projects
+
+This flexibility allows me to choose the best tool for each job rather than being locked into a single ecosystem. As cloud services continue to evolve and differentiate, this multi-cloud capability becomes increasingly important for building optimal solutions.
+
+## Why AWS Needs to Wake Up
+
+I don't want to sound too harsh because I understand that CloudFormation's deliberate approach may prevent certain types of errors. But AWS is a trillion-dollar company with some of the brightest engineers in the world. The fact that smaller companies have built significantly faster deployment engines raises serious questions about AWS's priorities.
+
+AWS prides itself on being customer-obsessed, but the persistent performance issues with CloudFormation suggest a blind spot. Years of customer complaints haven't resulted in meaningful improvements to deployment speed. This disconnect is concerning and has eroded my confidence in AWS's commitment to developer experience.
+
+## The Path Forward
+
+For those still using CloudFormation directly or through CDK, I strongly recommend exploring alternatives:
+
+1. **SST with Pulumi**: If you're building serverless applications, this combination offers the best developer experience I've found
+2. **Pulumi directly**: For more complex infrastructure needs with multi-cloud requirements
+3. **Terraform**: Still an excellent option with broad provider support and a mature ecosystem
+
+If you're committed to staying in the AWS ecosystem, the CDK does provide excellent abstractions that make CloudFormation more bearable. But be prepared for the deployment delays that will inevitably impact your productivity.
+
+## Conclusion
+
+CloudFormation served its purpose in the early days of infrastructure as code, but its performance limitations have become increasingly difficult to justify. By embracing faster alternatives like Pulumi, especially through frameworks like SST, you can reclaim countless hours of productivity and enjoy a more fluid development experience.
+
+The future of infrastructure as code is fast, flexible, and multi-cloud. Unfortunately, CloudFormation in its current form doesn't align with that vision. Until AWS makes fundamental improvements to its deployment engine, I'll be happily building with SST and Pulumi instead.
