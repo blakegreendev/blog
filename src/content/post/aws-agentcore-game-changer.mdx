@@ -1,0 +1,310 @@
+---
+title: "AWS AgentCore + Strands: The Production Stack for AI Agents"
+description: "AWS AgentCore is a serverless platform for deploying production AI agents, and Strands is the open-source framework to build them. Here's how they work together."
+publishDate: "07 September 2025"
+tags: ["aws", "ai", "serverless", "agentcore", "strands", "architecture"]
+---
+
+# AWS AgentCore + Strands: The Production Stack for AI Agents
+
+If you've been following the AI agent space, you know the pain. Building a demo agent is easy. Getting one into production? That's where dreams go to die.
+
+I've spent the last year wrestling with agent infrastructure—cobbling together Lambda functions, managing state in DynamoDB, handling authentication through custom middleware, and praying my retry logic would hold up under load. It worked, but it felt like building a house out of spare parts.
+
+Then AWS announced **AgentCore** and **Strands Agents**, and I realized we've been doing this the hard way.
+
+## The Two Pieces of the Puzzle
+
+Here's what AWS got right: they separated the **build** problem from the **deploy** problem.
+
+- **Strands Agents**: An open-source SDK for building AI agents in Python or TypeScript. Simple, model-agnostic, and surprisingly powerful.
+- **AgentCore**: AWS's serverless platform for deploying those agents to production. Handles runtime, memory, identity, observability—all the infrastructure you don't want to build.
+
+Think of it like this: Strands is your framework (like Flask or FastAPI), and AgentCore is your platform (like Lambda or Fargate). They're designed to work together, but you can use Strands locally or deploy it anywhere.
+
+## Strands Agents: Build in Minutes
+
+Let me show you what building an agent actually looks like with Strands:
+
+```python
+from strands import Agent
+
+agent = Agent()
+response = agent("What's the weather like in Seattle?")
+print(response)
+```
+
+That's it. Three lines. The agent uses Claude on Bedrock by default, handles the conversation loop, and streams responses.
+
+But the real power comes when you add tools:
+
+```python
+from strands import Agent, tool
+
+@tool
+def get_weather(city: str) -> str:
+    """Get the current weather for a city.
+    
+    Args:
+        city: The city to get weather for
+    """
+    # Your weather API call here
+    return f"It's 62°F and cloudy in {city}"
+
+@tool  
+def create_ticket(title: str, priority: str) -> str:
+    """Create a support ticket.
+    
+    Args:
+        title: Ticket title
+        priority: Priority level (low, medium, high)
+    """
+    # Your ticketing system integration
+    return f"Created ticket: {title} with {priority} priority"
+
+agent = Agent(
+    system_prompt="You are a helpful support agent.",
+    tools=[get_weather, create_ticket]
+)
+
+response = agent("It's raining here in Portland, create a high priority ticket about the leak")
+```
+
+The `@tool` decorator is where the magic happens. Strands automatically generates the tool schema from your function signature and docstring. The LLM sees what tools are available, decides when to use them, and handles the back-and-forth.
+
+### Model Agnostic
+
+Strands works with pretty much any LLM provider:
+
+```python
+from strands import Agent
+from strands.models import BedrockModel
+from strands.models.openai import OpenAIModel
+from strands.models.ollama import OllamaModel
+
+# Amazon Bedrock (default)
+agent = Agent(model=BedrockModel(model_id="anthropic.claude-3-5-sonnet-20241022-v2:0"))
+
+# OpenAI
+agent = Agent(model=OpenAIModel(model_id="gpt-4o"))
+
+# Local with Ollama
+agent = Agent(model=OllamaModel(host="http://localhost:11434", model_id="llama3"))
+```
+
+This is huge for development. Test locally with Ollama, deploy to production with Bedrock. Same code.
+
+### MCP Support Built In
+
+Strands has native support for the Model Context Protocol (MCP), which means you can plug into thousands of pre-built tools:
+
+```python
+from strands import Agent
+from strands.tools.mcp import MCPClient
+from mcp import stdio_client, StdioServerParameters
+
+# Connect to the AWS documentation MCP server
+aws_docs = MCPClient(
+    lambda: stdio_client(StdioServerParameters(
+        command="uvx", 
+        args=["awslabs.aws-documentation-mcp-server@latest"]
+    ))
+)
+
+with aws_docs:
+    agent = Agent(tools=aws_docs.list_tools_sync())
+    response = agent("How do I set up a VPC with private subnets?")
+```
+
+Your agent just got access to the entire AWS documentation. No scraping, no embeddings, no RAG pipeline. Just plug it in.
+
+## AgentCore: Deploy to Production
+
+Okay, so Strands makes building agents easy. But building is the fun part. The hard part is everything else:
+
+- How do I scale to thousands of concurrent users?
+- How do I persist memory across sessions?
+- How do I monitor what my agents are doing?
+- How do I secure access to AWS resources?
+- How do I handle long-running conversations that exceed Lambda's timeout?
+
+This is where AgentCore comes in.
+
+### The Core Components
+
+AgentCore isn't a monolith—it's a set of integrated services designed specifically for agent workloads.
+
+**Runtime**: The execution environment for your agents. Serverless, auto-scaling, with support for long-running sessions that would timeout on Lambda. It understands that agents aren't simple request-response functions.
+
+**Memory**: Persistent state across sessions. Not just conversation history, but semantic memory, user preferences, learned patterns. You interact through simple APIs; AgentCore handles the storage, indexing, and retrieval.
+
+**Identity**: Agents as first-class citizens with unique IDs, IAM integration, and audit trails. You can answer "which agent accessed this S3 bucket?" and "what actions did this agent take?"
+
+**Observability**: Full visibility into agent reasoning. Trace every thought, track token usage, break down latency. Native CloudWatch integration because you already know how to use it.
+
+**Tools**: Managed connections to AWS services and external APIs, with permission boundaries and rate limiting handled for you.
+
+### Strands + AgentCore Together
+
+Here's how you deploy a Strands agent to AgentCore. Your agent code stays the same—you just deploy it:
+
+```python
+# agent.py - Your Strands agent
+from strands import Agent, tool
+
+@tool
+def search_knowledge_base(query: str) -> str:
+    """Search the company knowledge base."""
+    # Your search implementation
+    return "Results for: " + query
+
+@tool
+def escalate_to_human(reason: str) -> str:
+    """Escalate the conversation to a human agent."""
+    # Your escalation logic
+    return f"Escalated: {reason}"
+
+agent = Agent(
+    system_prompt="""You are a customer support agent for Acme Corp.
+    Help users with their questions. If you can't help, escalate to a human.""",
+    tools=[search_knowledge_base, escalate_to_human]
+)
+
+# This runs locally during development
+if __name__ == "__main__":
+    response = agent("How do I reset my password?")
+    print(response)
+```
+
+That same agent deploys to AgentCore with the AWS CLI or CDK. AgentCore handles:
+
+- Scaling from zero to thousands of concurrent sessions
+- Persisting conversation memory across invocations
+- Securing tool access with IAM
+- Logging every interaction for observability
+- Managing the agent lifecycle
+
+Your code doesn't change. You just get production infrastructure for free.
+
+### Session Management with AgentCore Memory
+
+One of the killer features is the session manager integration. Strands agents can use AgentCore Memory directly:
+
+```python
+from strands import Agent
+from strands.session import AgentCoreSessionManager
+
+# Session manager persists conversation state to AgentCore
+session_manager = AgentCoreSessionManager()
+
+agent = Agent(
+    system_prompt="You are a helpful assistant with perfect memory.",
+    session_manager=session_manager
+)
+
+# First conversation
+agent("My name is Blake and I love serverless architecture", session_id="user-123")
+
+# Later, in a completely different invocation...
+agent("What's my name and what do I like?", session_id="user-123")
+# Agent remembers: "Your name is Blake and you love serverless architecture"
+```
+
+No DynamoDB tables to create. No S3 buckets to manage. No TTL policies to configure. It just works.
+
+## Why This Changes Everything
+
+I've been building on AWS for years. Here's why AgentCore + Strands feels different:
+
+### Separation of Concerns
+
+Strands handles the **agent logic**: prompts, tools, conversation flow, model selection. AgentCore handles the **infrastructure**: scaling, persistence, security, monitoring.
+
+This means your agent code is portable. Test locally with Strands, deploy to AgentCore for production, or run on Lambda, Fargate, EKS—wherever makes sense.
+
+### Development Velocity
+
+With the old approach, I'd spend weeks building infrastructure before writing a single line of agent logic. Now:
+
+1. `pip install strands-agents strands-agents-tools`
+2. Write your agent
+3. Test locally
+4. Deploy to AgentCore
+
+The infrastructure is pre-built. You're writing agent code on day one.
+
+### Production-Ready Defaults
+
+AgentCore comes with what you'd have to build yourself:
+
+- Multi-AZ reliability
+- Encryption at rest and in transit
+- IAM integration
+- CloudWatch metrics and logs
+- SOC, HIPAA, PCI compliance
+
+You're not building production infrastructure. You're inheriting it.
+
+### Real Observability
+
+Debugging agents is notoriously hard. Why did it make that decision? Where did the reasoning go wrong?
+
+AgentCore gives you traces of the entire thought process. Not just inputs and outputs—the full chain of reasoning, tool calls, and decisions. When something goes wrong (and it will), you can actually figure out why.
+
+## Getting Started
+
+Here's the path I'd recommend:
+
+**Step 1: Install Strands**
+
+```bash
+pip install strands-agents strands-agents-tools
+```
+
+**Step 2: Build Locally**
+
+```python
+from strands import Agent
+from strands_tools import calculator
+
+agent = Agent(tools=[calculator])
+response = agent("What's 42 * 17?")
+print(response)
+```
+
+**Step 3: Add Your Own Tools**
+
+```python
+from strands import Agent, tool
+
+@tool
+def lookup_customer(email: str) -> dict:
+    """Look up customer information by email."""
+    # Your database query here
+    return {"name": "Jane Doe", "plan": "Enterprise", "status": "Active"}
+
+agent = Agent(
+    system_prompt="You are a customer success agent.",
+    tools=[lookup_customer]
+)
+```
+
+**Step 4: Deploy to AgentCore**
+
+When you're ready for production, AgentCore is waiting. Same agent code, production infrastructure.
+
+## The Bottom Line
+
+AWS finally gave us the production stack for AI agents. Strands makes building agents simple and portable. AgentCore makes deploying them trivial.
+
+If you're building AI agents on AWS—or thinking about it—this combo deserves your attention. It won't write your agent logic for you, but it handles everything else. And in my experience, "everything else" is 80% of the work.
+
+The agent era is here. Now we finally have the stack to match.
+
+---
+
+**Resources:**
+- [Strands Agents Documentation](https://strandsagents.com/)
+- [Strands GitHub](https://github.com/strands-agents/sdk-python)
+- [AWS AgentCore](https://aws.amazon.com/bedrock/agentcore/)
+- [Strands Samples](https://github.com/strands-agents/samples)
