@@ -1,0 +1,286 @@
+---
+title: "The CDK AgentCore Construct Is a Beast"
+description: "The aws-bedrock-agentcore alpha CDK module makes deploying AI agents to production absurdly easy. Versioned runtimes, gateways, memory—all in code."
+publishDate: "12 March 2026"
+tags: ["aws", "cdk", "ai", "agentcore", "strands", "infrastructure-as-code"]
+---
+
+# The CDK AgentCore Construct Is a Beast
+
+I wrote about [AgentCore and Strands](/posts/aws-agentcore-game-changer/) a while back. The tldr: Strands builds agents, AgentCore runs them in production. Great combo.
+
+But I glossed over the deployment story. "Just deploy with CDK" is easy to say. The reality was... less polished. You were stitching together custom resources, writing CloudFormation snippets, and hoping for the best.
+
+Not anymore. The `@aws-cdk/aws-bedrock-agentcore-alpha` module just dropped, and it's the most comprehensive L2 construct I've seen in a while. This thing covers **everything**—runtimes, versioned endpoints, gateways, MCP targets, browser automation, code interpreters, long-term memory. All as high-level constructs.
+
+Let me show you why I'm excited.
+
+## From Strands Agent to Production in 20 Lines
+
+Here's my typical workflow. I write a Strands agent locally:
+
+```python
+# agent/main.py
+from strands import Agent, tool
+
+@tool
+def search_docs(query: str) -> str:
+    """Search the internal documentation."""
+    # Your search logic
+    return f"Results for: {query}"
+
+agent = Agent(
+    system_prompt="You are a technical support agent.",
+    tools=[search_docs]
+)
+```
+
+Test it, iterate, get it working. Then I need it in production. Here's the CDK stack:
+
+```typescript
+import * as agentcore from "@aws-cdk/aws-bedrock-agentcore-alpha";
+import * as path from "path";
+
+const runtime = new agentcore.Runtime(this, "SupportAgent", {
+  runtimeName: "support_agent",
+  agentRuntimeArtifact: agentcore.AgentRuntimeArtifact.fromAsset(
+    path.join(__dirname, "../agent")
+  ),
+});
+```
+
+That's it. `cdk deploy`. Your Strands agent is running on AgentCore with auto-scaling, IAM auth, and a default endpoint. The construct builds your Docker image, pushes it to ECR, and wires up the runtime.
+
+No Fargate task definitions. No ALB configurations. No ECS services. Just point it at your agent code.
+
+## The Versioning Model Is Incredible
+
+This is the feature that sold me. Every time you deploy a change to your runtime, AgentCore automatically creates a new **immutable version**. Your first deploy creates Version 1. Update the code, deploy again—Version 2.
+
+The DEFAULT endpoint always points to the latest version. But you can pin endpoints to specific versions:
+
+```typescript
+const runtime = new agentcore.Runtime(this, "SupportAgent", {
+  runtimeName: "support_agent",
+  agentRuntimeArtifact: agentcore.AgentRuntimeArtifact.fromAsset(
+    path.join(__dirname, "../agent")
+  ),
+});
+
+// Pin production to a known-good version
+const prod = runtime.addEndpoint("production", {
+  version: "1",
+  description: "Stable production endpoint",
+});
+
+// Staging gets the latest
+const staging = runtime.addEndpoint("staging", {
+  version: "2",
+  description: "Testing new version",
+});
+```
+
+Think about what this gives you. You deploy a new agent version, test it on staging, and when you're confident, you promote production to that version. If something breaks, roll back by pointing production at the previous version. No redeployments. No rollback pipelines. Just change the version number and deploy.
+
+This is blue-green deployments for AI agents, baked into the construct.
+
+## Four Ways to Deploy Your Code
+
+The construct gives you flexibility on how you get your agent code into the runtime:
+
+**Local Docker asset** (my go-to for Strands agents):
+```typescript
+agentcore.AgentRuntimeArtifact.fromAsset(
+  path.join(__dirname, "../agent")
+);
+```
+
+**ECR repository** (for CI/CD pipelines):
+```typescript
+agentcore.AgentRuntimeArtifact.fromEcrRepository(repository, "v1.0.0");
+```
+
+**S3 zip** (for lightweight agents without Docker):
+```typescript
+agentcore.AgentRuntimeArtifact.fromS3(
+  { bucketName: "my-code-bucket", objectKey: "agent.zip" },
+  agentcore.AgentCoreRuntime.PYTHON_3_12,
+  ["opentelemetry-instrument", "main.py"]
+);
+```
+
+**Direct ECR URI** (for pre-built images):
+```typescript
+agentcore.AgentRuntimeArtifact.fromImageUri(
+  "123456789012.dkr.ecr.us-east-1.amazonaws.com/my-agent:v1.0.0"
+);
+```
+
+The `fromAsset` option is magic for local development. Write your Dockerfile, point the construct at it, and CDK handles the build and push. Zero friction.
+
+## Gateways: MCP and Tool Hosting
+
+Gateways let your agents connect to external services—and let external services connect to your agents. The construct supports MCP protocol natively:
+
+```typescript
+const gateway = new agentcore.Gateway(this, "ToolGateway", {
+  gatewayName: "agent-tools",
+  protocolConfiguration: new agentcore.McpProtocolConfiguration({
+    instructions: "Gateway for agent tool access",
+    searchType: agentcore.McpGatewaySearchType.SEMANTIC,
+  }),
+});
+```
+
+Then you attach targets. Lambda functions, OpenAPI specs, MCP servers, even API Gateway endpoints:
+
+```typescript
+// Expose a Lambda function as a tool
+gateway.addLambdaTarget("PricingTool", {
+  gatewayTargetName: "pricing-calculator",
+  lambdaFunction: pricingFunction,
+  toolSchema: agentcore.ToolSchema.fromInline([{
+    name: "calculate_price",
+    description: "Calculate product pricing",
+    inputSchema: {
+      type: agentcore.SchemaDefinitionType.OBJECT,
+      properties: {
+        productId: {
+          type: agentcore.SchemaDefinitionType.STRING,
+          description: "The product ID",
+        },
+        quantity: {
+          type: agentcore.SchemaDefinitionType.NUMBER,
+          description: "Number of units",
+        },
+      },
+      required: ["productId", "quantity"],
+    },
+  }]),
+});
+
+// Connect to an external MCP server
+gateway.addMcpServerTarget("ExternalTools", {
+  gatewayTargetName: "external-mcp",
+  endpoint: "https://tools.example.com/mcp",
+  credentialProviderConfigurations: [
+    agentcore.GatewayCredentialProvider.fromOauthIdentityArn({
+      providerArn: oauthProviderArn,
+      secretArn: oauthSecretArn,
+      scopes: ["mcp-runtime-server/invoke"],
+    }),
+  ],
+});
+```
+
+Gateway auth supports Cognito, JWT, IAM, and OAuth out of the box. The construct creates the Cognito user pool and client for you by default—one less thing to wire up.
+
+## Authentication That Actually Makes Sense
+
+Runtime auth is similarly well-designed. IAM is the default (as it should be), but you can plug in Cognito or JWT with minimal config:
+
+```typescript
+const runtime = new agentcore.Runtime(this, "SecureAgent", {
+  runtimeName: "secure_agent",
+  agentRuntimeArtifact: artifact,
+  authorizerConfiguration:
+    agentcore.RuntimeAuthorizerConfiguration.usingCognito(
+      userPool,
+      [userPoolClient],
+      ["my-audience"],
+      ["read", "write"]
+    ),
+});
+```
+
+Custom claims validation is supported too. You can require specific JWT claims like department or role—useful when different teams share an agent but need scoped access.
+
+## IAM Grants Done Right
+
+The construct follows CDK's grant pattern, which means permissions are easy and type-safe:
+
+```typescript
+// Let a Lambda invoke the runtime
+runtime.grantInvoke(invokerFunction);
+
+// Let the runtime call Bedrock models
+const model = bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_7_SONNET_V1_0;
+model.grantInvoke(runtime);
+
+// Add custom permissions to the runtime's execution role
+runtime.addToRolePolicy(new iam.PolicyStatement({
+  actions: ["s3:GetObject"],
+  resources: ["arn:aws:s3:::my-data-bucket/*"],
+}));
+```
+
+No more hand-crafting IAM policies. The construct creates the execution role, and you just grant what you need. This is how CDK should work.
+
+## Browser and Code Interpreter
+
+These are the constructs that made me realize how comprehensive this module is.
+
+**Browser** gives your agents a cloud-based browser for web interactions:
+
+```typescript
+const browser = new agentcore.BrowserCustom(this, "AgentBrowser", {
+  browserCustomName: "web_agent_browser",
+  recordingConfig: {
+    enabled: true,
+    s3Location: {
+      bucketName: recordingBucket.bucketName,
+      objectKey: "recordings/",
+    },
+  },
+  browserSigning: agentcore.BrowserSigning.ENABLED,
+});
+```
+
+Session recording dumps to S3. Browser signing gives your agents verifiable cryptographic identities so WAFs can trust them. This is table-stakes for production web agents.
+
+**Code Interpreter** gives agents a sandboxed Python execution environment:
+
+```typescript
+const interpreter = new agentcore.CodeInterpreterCustom(this, "Sandbox", {
+  codeInterpreterCustomName: "python_sandbox",
+  networkConfiguration:
+    agentcore.CodeInterpreterNetworkConfiguration.usingSandboxNetwork(),
+});
+```
+
+Sandbox mode means no internet access—just pre-installed packages. For when you want agents to run code but not phone home.
+
+## Long-Term Memory
+
+The Memory construct handles persistent agent memory with extraction strategies:
+
+```typescript
+const memory = new agentcore.Memory(this, "AgentMemory", {
+  memoryName: "support_agent_memory",
+  description: "Long-term memory for support interactions",
+});
+```
+
+This integrates with Strands' `AgentCoreSessionManager`. Your agent remembers users across sessions without you managing a single database table.
+
+## Why This Matters
+
+I've deployed a lot of CDK stacks. Most L2 constructs handle one thing well. This module handles an entire agent platform:
+
+- **Runtime** with versioning and endpoints
+- **Gateway** with MCP protocol and multi-target support
+- **Browser** and **Code Interpreter** as managed tools
+- **Memory** for persistent state
+- Auth, networking, IAM, lifecycle management—all wired together
+
+And it all follows CDK conventions. Grants, connections, environment variables, VPC support. If you know CDK, you already know how to use this.
+
+The alpha label means breaking changes are possible. I don't care. For my Strands agents, the path from local development to production deployment has never been this clean. Write the agent. Write the stack. Deploy. Done.
+
+---
+
+**Resources:**
+- [CDK AgentCore Alpha Module](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-bedrock-agentcore-alpha-readme.html)
+- [AWS AgentCore](https://aws.amazon.com/bedrock/agentcore/)
+- [Strands Agents](https://strandsagents.com/)
+- [Previous Post: AgentCore + Strands](/posts/aws-agentcore-game-changer/)
